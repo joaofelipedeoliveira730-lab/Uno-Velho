@@ -1,8 +1,8 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const API = '/api';
-const RESOURCE_VERSION = 'uno50-v3.11-full';
-const LOCAL_RESOURCE_STATE = 'uno50.resources.v3.11';
+const RESOURCE_VERSION = 'uno50-v3.14-full';
+const LOCAL_RESOURCE_STATE = 'uno50.resources.v3.14';
 
 const refs = {
   maps: [
@@ -106,7 +106,7 @@ async function resourceList(){
   try { const d=await fetch('/manifest.json',{cache:'no-store'}); if(d.ok){const j=await d.json(); if(Array.isArray(j.resources)) return j.resources;} } catch {}
   return ['/','/index.html','/style.css','/app.js','/service-worker.js','/manifest.json','/reference-arena.svg',...refs.maps.map(m=>'/'+m.resource)];
 }
-async function registerOfflineWorker(){try{if('serviceWorker' in navigator) await navigator.serviceWorker.register('/service-worker.js',{scope:'/'});}catch(e){console.warn('Service Worker:',e);}}
+async function registerOfflineWorker(){try{if('serviceWorker' in navigator) await navigator.serviceWorker.register('/service-worker.js?v=20260818-3.14',{scope:'/'});}catch(e){console.warn('Service Worker:',e);}}
 async function isResourceCached(url){
   try{if(!('caches' in window))return false; const c=await caches.open(RESOURCE_VERSION); return !!(await c.match(url));}catch{return false;}
 }
@@ -181,6 +181,8 @@ function bindStaticEvents(){
   $('#formLogin').onsubmit=login;
   $('#formRegister').onsubmit=register;
   $('#brandHome').onclick=()=>navigate('lobby');
+  // Fallback robusto: a seleção da plataforma continua funcionando mesmo se algum bind anterior falhar.
+  document.addEventListener('click',e=>{const b=e.target.closest?.('.platform-option');if(b?.dataset?.platform)applyPlatform(b.dataset.platform,b.dataset.orientation,true);});
   $('#btnPlay').onclick=()=>navigate('play');
   $('#btnShop').onclick=()=>openShop('official');
   $('#btnInventory').onclick=()=>openInventory('items');
@@ -238,12 +240,13 @@ async function enterApp(forceCustomize=false){
   updateUserUI();
   try{if(!window.history.state?.uno50)window.history.pushState({uno50:true,view:'lobby'},'',window.location.pathname);}catch{}
   connectSocket();
-  if(!state.platform || !state.orientation) setTimeout(()=>openPlatformModal(false),250);
-  setTimeout(restoreSession,120);
+  const needsPlatform=!['mobile','desktop'].includes(state.platform)||!['portrait','landscape'].includes(state.orientation);
+  navigate('lobby',{replace:true});
+  setTimeout(()=>{if(needsPlatform)openPlatformModal(true);},180);
+  setTimeout(restoreSession,220);
   renderCharacter('#heroCharacter',state.profile.avatar);renderCharacter('#profileCharacterLarge',state.profile.avatar);renderCharacter('#customCharacter',state.profile.avatar);
   loadMiniRank();renderMapPreview();populateCustomizer();applySettings();
-  if(forceCustomize||!state.profile.avatar?.hair)openCustomize();
-  navigate('lobby',{replace:true});
+  if(!needsPlatform && (forceCustomize||!state.profile.avatar?.hair))setTimeout(openCustomize,250);
   startBackgroundMusic();
 }
 function defaultClientSettings(){return {music:true,musicVolume:.45,sfx:true,sfxVolume:.75,animations:true,chatWorld:true,chatRoom:true,chatPrivate:true,reducedMotion:false};}
@@ -265,7 +268,20 @@ function navigate(view,opts={}){
 }
 
 function openPlatformModal(force=false){const modal=$('#platformModal');if(!modal)return;if(!force&&state.platform&&state.orientation)return;show('#platformModal');}
-function applyPlatform(platform,orientation,close=true){state.platform=platform;state.orientation=orientation;localStorage.setItem('uno50_platform',platform);localStorage.setItem('uno50_orientation',orientation);document.body.dataset.platform=platform;document.body.dataset.orientation=orientation;document.documentElement.dataset.platform=platform;document.documentElement.dataset.orientation=orientation;if(close)hide('#platformModal');if(platform==='mobile'&&orientation==='landscape'&&screen.orientation?.lock){screen.orientation.lock('landscape').catch(()=>{});}toast(`Interface: ${platform==='mobile'?'Celular':'Computador'} • ${orientation==='portrait'?'Retrato':'Paisagem'}`,'success',2400);}
+function applyPlatform(platform,orientation,close=true){
+  const p=platform==='desktop'?'desktop':'mobile';
+  const o=orientation==='landscape'?'landscape':'portrait';
+  state.platform=p;state.orientation=o;
+  localStorage.setItem('uno50_platform',p);localStorage.setItem('uno50_orientation',o);
+  document.body.dataset.platform=p;document.body.dataset.orientation=o;
+  document.documentElement.dataset.platform=p;document.documentElement.dataset.orientation=o;
+  if(close)hide('#platformModal');
+  document.body.classList.remove('platform-selecting');
+  if(p==='mobile'&&o==='landscape'&&screen.orientation?.lock)screen.orientation.lock('landscape').catch(()=>{});
+  if(p==='mobile'&&o==='portrait'&&screen.orientation?.unlock)try{screen.orientation.unlock();}catch{}
+  toast(`Interface: ${p==='mobile'?'Celular':'Computador'} • ${o==='portrait'?'Retrato':'Paisagem'}`,'success',2400);
+  if(!state.profile?.avatar?.hair)setTimeout(openCustomize,260);
+}
 
 window.addEventListener('popstate',()=>{
   if(!state.user)return;
@@ -305,9 +321,9 @@ document.addEventListener('visibilitychange',()=>{
 
 function connectSocket(){
   if(state.socket?.connected)return;
-  state.socket=io({withCredentials:true,auth:state.token?{token:state.token}:{}});
+  state.socket=io({withCredentials:true,auth:state.token?{token:state.token}:{},reconnection:true,reconnectionAttempts:12,reconnectionDelay:800,reconnectionDelayMax:5000,timeout:10000});
   state.socket.on('connect',()=>{toast('Conectado ao servidor online.','success',1800);restoreSession();});
-  state.socket.on('connect_error',e=>toast('Conexão online indisponível: '+(e.message||'erro'),'error'));
+  state.socket.on('connect_error',e=>{const msg=String(e?.message||'erro');if(['server_not_ready','server_unavailable','xhr poll error','timeout'].includes(msg)||/websocket|transport|poll/i.test(msg)){toast('Reconectando ao servidor...','info',2200);}else if(msg==='unauthorized'){toast('Sessão expirada. Entre novamente.','error',3500);}else toast('Conexão online indisponível. Tentando novamente...','error',3000);});
   state.socket.on('rooms:update',()=>{if(state.currentView==='rooms')loadRooms();});
   state.socket.on('matchmaking:status',m=>{if(state.matchmaking&&m.mode===state.matchmaking.mode)$('#matchmakingStatus').textContent=m.message||'Procurando jogadores...';});
   state.socket.on('matchmaking:found',game=>handleMatchmakingFound(game));
@@ -459,6 +475,26 @@ function renderChatMessage(m){if(m.channel==='room'&&state.currentRoom?.code!==m
 
 async function openShop(mode='official'){state.shopMode=mode;navigate('shop');$$('.shop-tab').forEach(b=>b.classList.toggle('active',b.dataset.shop===mode));const catBar=$('#shopCategoryBar');if(catBar)catBar.classList.toggle('hidden',mode!=='official');try{if(mode==='market'){const d=await getJSON('/shop/market');renderMarket(d.listings||[]);}else{renderOfficialShop();}}catch(e){toast(e.message,'error');}}
 function shopCategoryOf(i){const id=String(i.id||'').toLowerCase(),cat=String(i.category||'').toLowerCase();if(cat==='clothing'||cat==='hair'||cat==='effect'||cat==='emote'||cat==='title')return cat;if(cat==='accessory'&&id.startsWith('hat_'))return 'hat';if(cat==='accessory')return 'accessory';return 'all';}
+function itemCard(item,owned){
+  const id=String(item.id||'');
+  const crown=id==='event_pharaoh_crown';
+  const price=Number(item.price||0);
+  const exclusive=Boolean(item.asset?.eventExclusive||item.asset?.ceoOnly);
+  const priceLabel=isCeoOwnerClient()?'∞':(price>0?formatNum(price):'EVENTO');
+  const visual=crown?'<img class="shop-crown-art" src="/pharaoh-crown.svg" alt="Coroa do Faraó">':`<div class="shop-glyph">${escapeHtml(String(item.name||'ITEM').slice(0,2).toUpperCase())}</div>`;
+  return `<article class="item-card glass ${owned?'owned':''}">
+    <div class="item-visual shop-preview-wrap">${visual}<div class="shop-item-badge">${exclusive?'EXCLUSIVO':String(item.rarity||'COMUM').toUpperCase()}</div><div class="shop-character-preview" data-shop-preview="${escapeHtml(id)}"></div></div>
+    <div class="item-info"><div><b>${escapeHtml(item.name||id)}</b><small>${escapeHtml(item.description||'Item do UNO50')}</small></div><strong>${owned?'ADQUIRIDO':priceLabel}</strong></div>
+    ${owned?'<button class="btn btn-secondary btn-wide" disabled>NO INVENTÁRIO</button>':(exclusive&&id.startsWith('event_')?'<button class="btn btn-secondary btn-wide" disabled>RECOMPENSA DO EVENTO</button>':`<button class="btn btn-primary btn-wide buy-item" data-id="${escapeHtml(id)}">COMPRAR</button>`)}
+  </article>`;
+}
+async function buyItem(itemId){
+  const item=state.items.find(x=>String(x.id)===String(itemId));
+  if(!item)return toast('Item não encontrado.','error');
+  if(item.asset?.eventExclusive)return toast('Esse item é exclusivo do Evento Egito Antigo.','info');
+  try{const d=await postJSON('/shop/buy',{itemId});state.inventory=(await getJSON('/inventory')).items||[];state.user=(await getJSON('/me')).user;updateUserUI();populateCustomizer();renderOfficialShop();toast(d.message||'Item comprado!','success');}
+  catch(e){toast(e.message||'Não foi possível comprar o item.','error',4500);}
+}
 function renderOfficialShop(){const owned=new Set(state.inventory.map(x=>x.id));let list=state.items.filter(i=>i.is_active!==false&&(!i.asset?.ceoOnly||isCeoOwnerClient())&&(isCeoOwnerClient()||Number(i.price||0)>=200));if(state.shopCategory!=='all')list=list.filter(i=>shopCategoryOf(i)===state.shopCategory);$('#shopGrid').innerHTML=list.length?list.map(item=>itemCard(item,owned.has(item.id))).join(''):'<div class="empty-state glass"><span>✨</span><b>Nenhum item nessa seção.</b><small>Volte para Tudo ou escolha outra categoria.</small></div>';$$('.shop-character-preview').forEach(el=>{const a={...state.profile.avatar};const id=el.dataset.shopPreview;const item=state.items.find(x=>x.id===id);if(item){if(item.category==='accessory')a.accessory=id;else if(item.category==='hair')a.hair=id;else if(item.category==='clothing'){if(id.startsWith('shirt_'))a.top=id;else if(id.startsWith('pants_'))a.bottom=id;else if(id.startsWith('shoes_'))a.shoes=id;}else if(item.category==='effect')a.effect=id;else if(item.category==='emote')a.emote=id;else if(item.category==='title')a.title=id;}renderCharacter(el,a);});$$('.buy-item').forEach(b=>b.onclick=()=>buyItem(b.dataset.id));}
 function populateCustomizer(){const categories={hair:'#customHair',top:'#customTop',bottom:'#customBottom',shoes:'#customShoes',accessory:'#customAccessory',effect:'#customEffect',emote:'#customEmote',title:'#customTitle'};for(const [cat,sel] of Object.entries(categories)){const el=$(sel);if(!el)continue;const allowed=new Set(state.inventory.map(i=>i.id));const ids=refs[cat]||[];const opts=ids.filter(id=>allowed.has(id)||isCeoOwnerClient()).map(id=>({id,name:itemName(id)}));el.innerHTML=opts.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('')||'<option value="">Nenhum item disponível</option>';const current=state.profile.avatar[cat];el.value=(current&&opts.some(o=>o.id===current))?current:(opts[0]?.id||'');el.onchange=()=>{state.profile.avatar[cat]=el.value||null;renderCharacter('#customCharacter',state.profile.avatar);};}$('#customEyes').value=state.profile.avatar.eyes||'#1d2433';$('#customHairColor').value=state.profile.avatar.hairColor||'#171717';$('#customEyes').onchange=e=>{state.profile.avatar.eyes=e.target.value;renderCharacter('#customCharacter',state.profile.avatar)};$('#customHairColor').onchange=e=>{state.profile.avatar.hairColor=e.target.value;renderCharacter('#customCharacter',state.profile.avatar)};}
 function openCustomize(){populateCustomizer();show('#customizeModal');renderCharacter('#customCharacter',state.profile.avatar);}
@@ -510,7 +546,7 @@ async function openEvent(){
     $('#eventXpBar').style.width=`${d.progressPercent}%`;
     $('#eventPrestigeLabel').textContent=`PRESTÍGIO ${Number(state.user?.prestige||0)}`;
     $('#eventStatusLabel').textContent=d.level>=100?'PASSE COMPLETO':'Continue jogando para liberar recompensas';
-    $('#eventRewards').innerHTML=(d.rewards||[]).map(r=>`<article class="event-reward glass ${r.unlocked?'unlocked':'locked'}"><div class="event-reward-visual ${r.id==='event_pharaoh_crown'?'pharaoh-crown':''}">${r.id==='event_pharaoh_crown'?'👑':'🏺'}</div><div><span>NÍVEL ${r.level}</span><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.description)}</small></div><strong>${r.unlocked?'DESBLOQUEADO':'BLOQUEADO'}</strong></article>`).join('');
+    $('#eventRewards').innerHTML=(d.rewards||[]).map(r=>`<article class="event-reward glass ${r.unlocked?'unlocked':'locked'}"><div class="event-reward-visual ${r.id==='event_pharaoh_crown'?'pharaoh-crown':''}">${r.id==='event_pharaoh_crown'?'<img class="pharaoh-crown-art" src="/pharaoh-crown.svg" alt="Coroa do Faraó">':'<span class="event-reward-glyph">EGITO</span>'}</div><div><span>NÍVEL ${r.level}</span><b>${escapeHtml(r.name)}</b><small>${escapeHtml(r.description)}</small></div><strong>${r.unlocked?'DESBLOQUEADO':'BLOQUEADO'}</strong></article>`).join('');
     if(d.claimed?.length) toast(`🏺 ${d.claimed.length} recompensa(s) do evento adicionada(s) ao inventário!`,'success',3500);
     state.inventory=(await getJSON('/inventory')).items||[];populateCustomizer();
   }catch(e){toast(e.message,'error');}

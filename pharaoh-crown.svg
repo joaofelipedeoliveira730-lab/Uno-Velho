@@ -1,1 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 180"><defs><radialGradient id="g"><stop stop-color="#f7d35c" stop-opacity=".9"/><stop offset="1" stop-color="#071b3d" stop-opacity=".2"/></radialGradient></defs><rect width="220" height="180" rx="28" fill="#081b40"/><circle cx="110" cy="78" r="64" fill="url(#g)"/><circle cx="110" cy="78" r="38" fill="#d59b76" opacity=".9"/><path d="M65 55 L78 22 L96 45 L110 17 L124 45 L143 22 L155 55 Z" fill="#f7d35c" stroke="#fff0a0" stroke-width="4"/><text x="110" y="143" text-anchor="middle" fill="white" font-family="Arial" font-size="15" font-weight="700">Coroa do Faraó</text><text x="110" y="163" text-anchor="middle" fill="#f7d35c" font-family="Arial" font-size="10" font-weight="700">Mítica</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240">
+ <defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2a6"/><stop offset=".28" stop-color="#ffd45b"/><stop offset=".62" stop-color="#c98a16"/><stop offset="1" stop-color="#fff0a0"/></linearGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#65e7ff"/><stop offset=".5" stop-color="#2377ff"/><stop offset="1" stop-color="#7a4cff"/></linearGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ </defs>
+ <g filter="url(#glow)">
+  <path d="M42 62 L78 174 Q160 211 242 174 L278 62 L224 111 L198 30 L160 92 L122 30 L96 111 Z" fill="url(#gold)" stroke="#fff6c2" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M61 143 Q160 181 259 143 L246 177 Q160 211 74 177 Z" fill="#a66d0d" opacity=".7"/>
+  <path d="M92 118 Q160 143 228 118" fill="none" stroke="#fff2a0" stroke-width="8" opacity=".8"/>
+  <circle cx="122" cy="39" r="15" fill="url(#blue)" stroke="#fff2a0" stroke-width="4"/>
+  <circle cx="198" cy="39" r="15" fill="url(#blue)" stroke="#fff2a0" stroke-width="4"/>
+  <circle cx="160" cy="94" r="20" fill="url(#blue)" stroke="#fff2a0" stroke-width="5"/>
+  <path d="M104 154 Q160 174 216 154" fill="none" stroke="#6cecff" stroke-width="5" opacity=".8"/>
+ </g>
+</svg>

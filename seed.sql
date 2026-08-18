@@ -1,4 +1,4 @@
--- UNO50 3.11 — catálogo oficial reformulado
+-- UNO50 3.14 — catálogo oficial reformulado
 UPDATE items SET is_active=FALSE;
 INSERT INTO items(id,name,category,description,price,xp_required,rarity,asset,is_active) VALUES
 ('deck_classic','Baralho UNO50 Clássico','deck','Baralho padrão do UNO50.',0,0,'common','{"theme":"classic"}',TRUE),

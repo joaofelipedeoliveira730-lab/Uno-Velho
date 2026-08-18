@@ -1,6 +1,6 @@
 {
   "name": "uno50",
-  "version": "3.12.0",
+  "version": "3.14.0",
   "private": true,
   "description": "UNO50 multiplayer com PostgreSQL, Socket.IO, loja, inventário, ranking, histórico, temporadas e proteção de sessão.",
   "main": "server.js",

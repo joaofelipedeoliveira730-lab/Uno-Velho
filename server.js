@@ -108,7 +108,7 @@ async function initDatabase() {
   const schema=fs.readFileSync(path.join(__dirname,'schema.sql'),'utf8');
   await pool.query(schema);
   usePostgres=true;
-  await ensureEgyptEventItems();
+  try { await ensureEgyptEventItems(); } catch (err) { console.error('⚠️ Itens do evento não puderam ser atualizados:', err.message); }
 
   // O catálogo é importante para Loja/Inventário, mas uma falha nele não pode
   // derrubar Login/Cadastro. O seed é idempotente e pode ser corrigido sem apagar dados.
@@ -120,7 +120,7 @@ async function initDatabase() {
   }
   // O seed histórico desativa o catálogo antes de reativar os itens oficiais;
   // os itens do Passe Egito precisam ser reativados depois do seed.
-  await ensureEgyptEventItems();
+  try { await ensureEgyptEventItems(); } catch (err) { console.error('⚠️ Reativação dos itens do evento falhou:', err.message); }
 
   // O CEO é exclusivo. Se CEO_INITIAL_PASSWORD ainda não foi configurada,
   // não bloqueamos o jogo inteiro: jogadores normais continuam podendo entrar.
@@ -667,7 +667,7 @@ function scheduleQueueFill(mode){
 }
 setInterval(()=>{scheduleQueueFill('duo');scheduleQueueFill('trio');},1000).unref();
 
-io.use(async(socket,next)=>{const token=parseCookies({headers:socket.handshake.headers})[AUTH_COOKIE];const payload=token&&verifyToken(token);if(!payload)return next(new Error('unauthorized'));const user=await getUserById(payload.id);if(!user)return next(new Error('unauthorized'));const mod=await activeModeration(user.id);if(mod?.action==='ban')return next(new Error('banned'));socketUsers.set(socket.id,{userId:user.id,username:user.username,role:user.role});socket.user=user;next();});
+io.use(async(socket,next)=>{try{if(!databaseReady&&databaseReadyPromise)await databaseReadyPromise;if(!databaseReady)return next(new Error('server_not_ready'));const token=parseCookies({headers:socket.handshake.headers})[AUTH_COOKIE];const payload=token&&verifyToken(token);if(!payload)return next(new Error('unauthorized'));const user=await getUserById(payload.id);if(!user)return next(new Error('unauthorized'));const mod=await activeModeration(user.id);if(mod?.action==='ban')return next(new Error('banned'));socketUsers.set(socket.id,{userId:user.id,username:user.username,role:user.role});socket.user=user;next();}catch(err){console.error('Socket auth:',err.message);next(new Error('server_unavailable'));}});
 
 io.on('connection',socket=>{
   const me=socket.user;
