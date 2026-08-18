@@ -1,0 +1,24 @@
+{
+  "name": "uno50",
+  "version": "3.12.0",
+  "private": true,
+  "description": "UNO50 multiplayer com PostgreSQL, Socket.IO, loja, inventário, ranking, histórico, temporadas e proteção de sessão.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node migrate.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "socket.io": "^4.8.1"
+  }
+}
